@@ -16,6 +16,7 @@
     "@aws-sdk/client-s3": "^3.1065.0",
     "@aws-sdk/client-sqs": "^3.1065.0",
     "@aws-sdk/s3-request-presigner": "^3.1065.0",
+    "@chroma-core/default-embed": "^0.1.9",
     "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^3.0.3",
     "chromadb": "^3.4.3",

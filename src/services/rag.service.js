@@ -3,38 +3,40 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const chroma = new ChromaClient({
-  path: process.env.CHROMA_API_KEY 
-    ? `https://api.trychroma.com`
-    : 'http://localhost:8001',
-  auth: process.env.CHROMA_API_KEY ? {
-    provider: 'token',
-    credentials: process.env.CHROMA_API_KEY,
-    tokenHeaderType: 'X-Chroma-Token',
-  } : undefined,
-  tenant: process.env.CHROMA_TENANT || 'default_tenant',
-  database: process.env.CHROMA_DATABASE || 'default_database',
-});
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// Get or create a collection for a document
-const getCollection = async (documentId) => {
-  return await chroma.getOrCreateCollection({
-    name: `doc_${documentId}`,
-    metadata: { hnsw_space: 'cosine' },
+const getChromaClient = () => {
+  if (process.env.CHROMA_API_KEY) {
+  return new ChromaClient({
+    ssl: true,
+    host: 'api.trychroma.com',
+    port: 443,
+    tenant: process.env.CHROMA_TENANT,
+    database: process.env.CHROMA_DATABASE,
+    headers: { 'x-chroma-token': process.env.CHROMA_API_KEY },
+  });
+}
+  return new ChromaClient({
+    ssl: false,
+    host: 'localhost',
+    port: 8001,
+    tenant: 'default_tenant',
+    database: 'default_database',
   });
 };
 
-// Generate embedding for a single text using Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
 const generateEmbedding = async (text) => {
-  const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
   const result = await model.embedContent(text);
   return result.embedding.values;
 };
 
-// Store all chunks with embeddings for a document
 export const storeChunks = async (documentId, chunks) => {
-  const collection = await getCollection(documentId);
+  const chroma = getChromaClient();
+  const collection = await chroma.getOrCreateCollection({
+    name: `doc${documentId}`,
+    metadata: { hnsw_space: 'cosine' },
+  });
 
   const embeddings = [];
   const documents = [];
@@ -44,30 +46,31 @@ export const storeChunks = async (documentId, chunks) => {
     const embedding = await generateEmbedding(chunks[i]);
     embeddings.push(embedding);
     documents.push(chunks[i]);
-    ids.push(`${documentId}_chunk_${i}`);
+    ids.push(`${documentId}chunk${i}`);
   }
 
   await collection.add({ ids, embeddings, documents });
   console.log(`Stored ${chunks.length} chunks for document ${documentId}`);
 };
 
-// Query: find top-k relevant chunks for a question
 export const queryChunks = async (documentId, question, topK = 5) => {
-  const collection = await getCollection(documentId);
+  const chroma = getChromaClient();
+  const collection = await chroma.getOrCreateCollection({
+    name: `doc${documentId}`,
+    metadata: { hnsw_space: 'cosine' },
+  });
   const questionEmbedding = await generateEmbedding(question);
-
   const results = await collection.query({
     queryEmbeddings: [questionEmbedding],
     nResults: topK,
   });
-
-  return results.documents[0]; // array of relevant chunks
+  return results.documents[0];
 };
 
-// Delete all chunks for a document
 export const deleteChunks = async (documentId) => {
   try {
-    await chroma.deleteCollection({ name: `doc_${documentId}` });
+    const chroma = getChromaClient();
+    await chroma.deleteCollection({ name: `doc${documentId}` });
   } catch (err) {
     console.log(`No collection found for document ${documentId}`);
   }
