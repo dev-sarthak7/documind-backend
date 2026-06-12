@@ -3,7 +3,18 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const chroma = new ChromaClient({ path: 'http://localhost:8001' });
+const chroma = new ChromaClient({
+  path: process.env.CHROMA_API_KEY 
+    ? `https://api.trychroma.com`
+    : 'http://localhost:8001',
+  auth: process.env.CHROMA_API_KEY ? {
+    provider: 'token',
+    credentials: process.env.CHROMA_API_KEY,
+    tokenHeaderType: 'X-Chroma-Token',
+  } : undefined,
+  tenant: process.env.CHROMA_TENANT || 'default_tenant',
+  database: process.env.CHROMA_DATABASE || 'default_database',
+});
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Get or create a collection for a document
