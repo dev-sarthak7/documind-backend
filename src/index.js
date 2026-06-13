@@ -11,7 +11,15 @@ import chatRoutes from './routes/chat.routes.js';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://documind-frontend-black.vercel.app',
+    'https://documind.sarthaksb.me',
+    'https://www.documind.sarthaksb.me',
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 app.use('/api/upload', uploadRoutes);
 app.use('/api/auth', authRoutes);
