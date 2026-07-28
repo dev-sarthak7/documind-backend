@@ -210,7 +210,7 @@ Deployed on **Render** free tier. Auto-deploys on push to `main`.
 
 ## Author
 
-**Sarthak Satish Borekar** — B.Tech CSE, VIT Bhopal University
+**Sarthak Satish Borekar** — B.Tech CSE
 
 [GitHub](https://github.com/dev-sarthak7) · [Live Demo](https://documind.sarthaksb.me)
 
