@@ -1,5 +1,7 @@
 import Document from '../models/Document.model.js';
+import Chat from '../models/Chat.model.js';
 import { storeChunks, deleteChunks } from '../services/rag.service.js';
+import { deleteFile } from '../services/s3.service.js';
 
 // Called by Lambda after processing is complete
 export const processComplete = async (req, res) => {
@@ -70,11 +72,35 @@ export const deleteDocument = async (req, res) => {
     if (!document)
       return res.status(404).json({ error: 'Document not found' });
 
-    await deleteChunks(document._id.toString());
+    // 1. Delete vectors from ChromaDB
+    try {
+      await deleteChunks(document._id.toString());
+    } catch (chromaErr) {
+      console.warn('Chroma chunk deletion warning:', chromaErr.message);
+    }
+
+    // 2. Delete file from S3
+    if (document.fileKey) {
+      try {
+        await deleteFile(document.fileKey);
+      } catch (s3Err) {
+        console.warn('S3 file deletion warning:', s3Err.message);
+      }
+    }
+
+    // 3. Delete associated chat history
+    try {
+      await Chat.deleteMany({ documentId: document._id });
+    } catch (chatErr) {
+      console.warn('Chat deletion warning:', chatErr.message);
+    }
+
+    // 4. Delete document record from MongoDB
     await document.deleteOne();
 
-    res.json({ message: 'Document deleted' });
+    res.json({ message: 'Document deleted successfully', documentId: req.params.id });
   } catch (err) {
+    console.error('Delete document error:', err);
     res.status(500).json({ error: 'Failed to delete document' });
   }
 };
